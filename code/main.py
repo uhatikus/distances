@@ -2,6 +2,7 @@ import os
 import cv2
 import ntpath
 import sys
+import read_model
 
 
 def video_to_frames(video_file):
@@ -18,7 +19,7 @@ def video_to_frames(video_file):
 		success,image = vidcap.read()
 		print('Read a new frame: ', success)
 		count += 1	
-		if count > 30:
+		if count >= 0:
 			break
 	return project_dir
 
@@ -29,9 +30,13 @@ def main():
 		return
 
 	video_file = sys.argv[1]
-	#project_dir = video_to_frames(video_file)
+	project_dir = video_to_frames(video_file)
 	#os.system("colmap automatic_reconstructor --workspace_path " + project_dir + " --image_path " + project_dir + "images/")
 	#os.system("colmap feature_extractor  --database_path " + project_dir + "/database.db --image_path " + project_dir + "/images")
+	
+	cameras, images, points3D = read_model.read_model(path=project_dir+"sparse/0/", ext=".bin")
+	
+	#read_model.plot_points3D(points3D)
 
 if __name__ == "__main__":
     main()
