@@ -141,7 +141,7 @@ def label_points(IMAGE_DIR):
     labeled_points = []
     count = 1
     for image_file in glob.glob(IMAGE_DIR + "*.jpg"):
-        if count > 3:
+        if count > 1:
             break
         print("Processing image # " + str(count))
         count += 1
@@ -153,3 +153,31 @@ def label_points(IMAGE_DIR):
         # Visualize results
         # visualize.display_instances(image, results['rois'], results['masks'], results['class_ids'], class_names, results['scores'])
     return labeled_points
+
+
+def combine(labeled_points, cameras, images, points3D):
+    images_n = len(images)
+    points3D_n = len(points3D)
+
+    points3D_on_images = np.zeros((points3D_n,images_n))
+
+    images_n = len(labeled_points)
+    for i in range(images_n):
+        labeled_point = labeled_points[i]
+        masks = labeled_point['masks']
+        masks = masks.astype(int)   
+        masks_n = len(masks[0,0,:])
+        masks_1 = len(masks[:,0,0])
+        masks_2 = len(masks[0,:,0])
+        for j in range(masks_n):
+            masks[:, :, j] = (j+1)*masks[:, :, j]
+        points2D_n = len(images[i+1].point3D_ids)
+        for j in range(points2D_n):
+            point3D_id = images[i+1].point3D_ids[j]
+            if (point3D_id == -1):
+                continue 
+            xy = images[i+1].xys[j]
+            x = round(xy[0])
+            y = round(xy[1])
+
+    return points3D_on_images
