@@ -298,52 +298,6 @@ def rotmat2qvec(R):
     return qvec
 
 
-def plot_points3D(points3D):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    i = 0;
-    X = [];
-    Y = [];
-    Z = [];
-    n_points = len(points3D)
-    #n_points = 100
-    RGB = np.zeros(shape=(n_points,3));
-
-    for point_id in points3D:
-        if i >= n_points:
-            break
-        point = points3D[point_id]
-        xyz = point.xyz
-        rgb = point.rgb  
-
-        X.append(xyz[0])
-        Y.append(xyz[1])
-        Z.append(xyz[2])
-        RGB[i, :] = rgb/256
-        i = i+1
-
-    Xmean = np.mean(X)
-    Xstd = np.std(X)
-    Ymean = np.mean(Y)
-    Ystd = np.std(Y)
-    Zmean = np.mean(Z)
-    Zstd = np.std(Z)
-
-    ax.scatter(X, Y, Z, facecolors = RGB, s=1)
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('Z Label')
-
-    t_n = 2.5
-    ax.set_xlim([Xmean - t_n*Xstd, Xmean + t_n*Xstd])
-    ax.set_ylim([Ymean - t_n*Ystd, Ymean + t_n*Ystd])
-    ax.set_zlim([Zmean - t_n*Zstd, Zmean + t_n*Zstd])
-
-    plt.show()
-    return
-
 def main():
     if len(sys.argv) != 3:
         print("Usage: python read_model.py path/to/model/folder [.txt,.bin]")
@@ -354,9 +308,6 @@ def main():
     print("num_cameras:", len(cameras))
     print("num_images:", len(images))
     print("num_points3D:", len(points3D))
-    
-    plot_points3D(points3D)
-
 
 
 if __name__ == "__main__":
