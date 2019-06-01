@@ -1,4 +1,5 @@
+.gitignore
 data/
 .DS_Store
 .idea/
-MRCNN_models
+MASK_RCNN_models

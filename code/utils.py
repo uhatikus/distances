@@ -29,8 +29,8 @@ def video_to_frames(video_file):
         success,image = vidcap.read()
         print('Read a new frame #' + str(count) + ': ', success)
         count += 1  
-        # if count > 0:
-        #     break 
+        if count > 0:
+            break 
     print("Obtained " + str(count-1) + " images")
     return project_dir
 
@@ -141,8 +141,8 @@ def label_points(IMAGE_DIR):
     labeled_points = []
     count = 1
     for image_file in glob.glob(IMAGE_DIR + "*.jpg"):
-        # if count > 3:
-        #     break
+        if count > 3:
+            break
         print("Processing image # " + str(count))
         count += 1
         image = skimage.io.imread(image_file)
