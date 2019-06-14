@@ -158,7 +158,6 @@ def label_points(IMAGE_DIR):
 def combine(labeled_points, cameras, images, points3D):
     images_n = len(images)
     points3D_n = len(points3D)
-
     points3D_on_images = np.zeros((points3D_n,images_n))
 
     images_n = len(labeled_points)
@@ -169,15 +168,18 @@ def combine(labeled_points, cameras, images, points3D):
         masks_n = len(masks[0,0,:])
         masks_1 = len(masks[:,0,0])
         masks_2 = len(masks[0,:,0])
+        mask = masks[:, :, 0]
         for j in range(masks_n):
-            masks[:, :, j] = (j+1)*masks[:, :, j]
+            mask = mask + np.logical_xor(mask, masks[:, :, j]*((j+1)*masks[:, :, j]))
         points2D_n = len(images[i+1].point3D_ids)
         for j in range(points2D_n):
             point3D_id = images[i+1].point3D_ids[j]
             if (point3D_id == -1):
                 continue 
             xy = images[i+1].xys[j]
-            x = round(xy[0])
-            y = round(xy[1])
-
+            x = int(round(xy[0]))
+            y = int(round(xy[1]))
+            points3D_on_images[j][i] = mask[y][x]
+            
+    points3D_on_images = points3D_on_images.astype(int)
     return points3D_on_images
