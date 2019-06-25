@@ -14,8 +14,15 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import glob
 
+def resize(image, scale): 
+    width = int(image.shape[1] * scale)
+    height = int(image.shape[0] * scale)
+    dim = (width, height)
+    resized = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+    return resized
 
 def video_to_frames(video_file):
+    scale = 0.5
     vidcap = cv2.VideoCapture(video_file)
     video_name = ((ntpath.basename(video_file)).split("."))[0]
     os.system("mkdir data/projects/" + video_name)
@@ -24,6 +31,7 @@ def video_to_frames(video_file):
     count = 1
     project_dir = os.getcwd() + "/data/projects/" + video_name + "/"
     while success:
+        image = resize(image, scale)
         cv2.imwrite(project_dir + "images/" + video_name + "_frame_%d.jpg" % count, image)     # save frame as JPEG file      
         vidcap.set(cv2.CAP_PROP_POS_MSEC,(count*100))
         success,image = vidcap.read()
@@ -34,8 +42,80 @@ def video_to_frames(video_file):
     print("Obtained " + str(count-1) + " images")
     return project_dir
 
+def plot_points3D_after(points3D, mark_list):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    t_n = 2.5
+    i = 0;
+    X = [];
+    Y = [];
+    Z = [];
+    n_points = len(points3D)
+    n_points = int(n_points/2)
+    RGB = np.zeros(shape=(n_points,3));
 
-def plot_points3D(points3D):
+    for point_id in points3D:
+        if i >= n_points:
+            break
+        point = points3D[point_id]
+        xyz = point.xyz
+        rgb = point.rgb  
+
+        X.append(xyz[0])
+        Y.append(xyz[1])
+        Z.append(xyz[2])
+        RGB[i, :] = rgb/256
+        if point_id in mark_list:
+            RGB[i, :] = [1, 0, 0]
+        else:
+             RGB[i, :] *= 0
+        #     RGB[i, :] += [1, 1, 1]
+        #     RGB[i, :] *= -0.4
+        #     RGB[i, :] += [1, 1, 1]
+        i = i+1
+
+    Xmean = np.mean(X)
+    Xstd = np.std(X)
+    Ymean = np.mean(Y)
+    Ystd = np.std(Y)
+    Zmean = np.mean(Z)
+    Zstd = np.std(Z)
+
+    # i = 0;
+    # X = [];
+    # Y = [];
+    # Z = [];
+    # for point_id in points3D:
+    #     if i >= n_points:
+    #         break
+    #     point = points3D[point_id]
+    #     xyz = point.xyz
+    #     rgb = point.rgb  
+    #     if xyz[0] > Xmean - t_n*Xstd and xyz[1] > Ymean - t_n*Ystd and xyz[2] > Zmean - t_n*Zstd and xyz[0] < Xmean + t_n*Xstd and xyz[1] < Ymean + t_n*Ystd and xyz[2] < Zmean + t_n*Zstd: 
+    #         X.append(xyz[0])
+    #         Y.append(xyz[1])
+    #         Z.append(xyz[2])
+    #         RGB[i, :] = rgb/256
+    #         i = i+1 
+
+    # print(i)
+    # RGB = RGB[0:i, :] 
+
+    ax.scatter(X, Y, Z, facecolors = RGB, s=1)
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+
+    ax.set_xlim([Xmean - t_n*Xstd, Xmean + t_n*Xstd])
+    ax.set_ylim([Ymean - t_n*Ystd, Ymean + t_n*Ystd])
+    ax.set_zlim([Zmean - t_n*Zstd, Zmean + t_n*Zstd])
+
+    plt.show()
+    return
+
+def plot_points3D_after_old(points3D, mark_list):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -44,7 +124,56 @@ def plot_points3D(points3D):
     Y = [];
     Z = [];
     n_points = len(points3D)
-    #n_points = 100
+    n_points = int(n_points/4) 
+    RGB = np.zeros(shape=(n_points,3));
+    for point_id in points3D:
+        if i >= n_points:
+            break
+        point = points3D[point_id]
+        xyz = point.xyz
+        rgb = point.rgb  
+
+        X.append(xyz[0])
+        Y.append(xyz[1])
+        Z.append(xyz[2])
+        RGB[i, :] = rgb/256
+        # if point_id in mark_list:
+        #     RGB[i, :] = [0.5, 0.5, 0.5]
+        # else:
+        #     RGB[i, :] *= 0
+        # i += 1
+
+    Xmean = np.mean(X)
+    Xstd = np.std(X)
+    Ymean = np.mean(Y)
+    Ystd = np.std(Y)
+    Zmean = np.mean(Z)
+    Zstd = np.std(Z)
+
+    ax.scatter(X, Y, Z, facecolors = RGB, s=1)
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+    t_n = 2.5
+    ax.set_xlim([Xmean - t_n*Xstd, Xmean + t_n*Xstd])
+    ax.set_ylim([Ymean - t_n*Ystd, Ymean + t_n*Ystd])
+    ax.set_zlim([Zmean - t_n*Zstd, Zmean + t_n*Zstd])
+
+    plt.show()
+    return
+
+def plot_points3D(points3D):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    t_n = 2.5
+    i = 0;
+    X = [];
+    Y = [];
+    Z = [];
+    n_points = len(points3D)
+    n_points =int(n_points/4)
     RGB = np.zeros(shape=(n_points,3));
 
     for point_id in points3D:
@@ -67,13 +196,33 @@ def plot_points3D(points3D):
     Zmean = np.mean(Z)
     Zstd = np.std(Z)
 
+    # i = 0;
+    # X = [];
+    # Y = [];
+    # Z = [];
+    # for point_id in points3D:
+    #     if i >= n_points:
+    #         break
+    #     point = points3D[point_id]
+    #     xyz = point.xyz
+    #     rgb = point.rgb  
+    #     if xyz[0] > Xmean - t_n*Xstd and xyz[1] > Ymean - t_n*Ystd and xyz[2] > Zmean - t_n*Zstd and xyz[0] < Xmean + t_n*Xstd and xyz[1] < Ymean + t_n*Ystd and xyz[2] < Zmean + t_n*Zstd: 
+    #         X.append(xyz[0])
+    #         Y.append(xyz[1])
+    #         Z.append(xyz[2])
+    #         RGB[i, :] = rgb/256
+    #         i = i+1 
+
+    # print(i)
+    # RGB = RGB[0:i, :] 
+
     ax.scatter(X, Y, Z, facecolors = RGB, s=1)
 
     ax.set_xlabel('X Label')
     ax.set_ylabel('Y Label')
     ax.set_zlabel('Z Label')
 
-    t_n = 2.5
+
     ax.set_xlim([Xmean - t_n*Xstd, Xmean + t_n*Xstd])
     ax.set_ylim([Ymean - t_n*Ystd, Ymean + t_n*Ystd])
     ax.set_zlim([Zmean - t_n*Zstd, Zmean + t_n*Zstd])
