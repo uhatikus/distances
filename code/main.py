@@ -28,7 +28,7 @@ def main():
 				if i[-1] == ']':
 					points3D_on_images.append(int(i[0:-1]))
 	# print(points3D_on_images)
-	s = "0 1 1 0 0 0 1 1 1 0 0 0 0 1 0 1 1 0 1 1 0 0 1 0 1 1 1 0 1 0 1 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0"
+	s = "0 1 1 1 1 0 1"
 	labels_ = s.split()
 	print(len(labels_))
 	id_num = 0
@@ -36,8 +36,8 @@ def main():
 	mark_list = []
 	count__ = 0
 	for i, label in enumerate(labels_):
-	    # if int(label) == id_num:
-	    if True:
+	    if int(label) == id_num:
+	    # if True:
 	    	count__ += 1
 	    	mark_list.append(points3D_on_images[i])
 	print(count__)
