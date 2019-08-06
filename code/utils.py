@@ -78,7 +78,7 @@ def match_imgs(img1_name, img2_name):
 
 def get_target_frames(project_dir, img1_name, folder_to="target", folder_from="cropped"):
     MIN_MATCH_COUNT = 200
-    img1_name = "/".join(filter(bool, project_dir.split("/"))[:(-1)]) + "/" + img1_name
+    img1_name = "/" + "/".join(list(filter(bool, project_dir.split("/")))[:(-1)]) + "/" + img1_name
     os.system("mkdir " + project_dir + folder_to)
     cropped_imgs =  sorted(glob.glob(project_dir + folder_from + "/*.jpg"))
     images_n = len(cropped_imgs)
@@ -86,20 +86,23 @@ def get_target_frames(project_dir, img1_name, folder_to="target", folder_from="c
     for i in range(images_n+2):
         for j, value in enumerate(score):
             if (j + 1 < len(score)/2.0):
-                score[j] = score[j+1]/2.0
+                score[j] = score[j+1]
             if (j + 1 > len(score)/2.0) and (j < len(score)-1):
                 score[j] = score[j+1]*2.0
-            if (j == len(score)-1): 
-                score[j] = match_imgs(img1_name, cropped_imgs[i])/4.0
+            if (j == len(score)-1):
+                if i < images_n:
+                    score[j] = match_imgs(img1_name, cropped_imgs[i])/4.0
+                else:
+                    score[j] = 0
         if i < 2:
             continue
+        print(sum(score))
         if sum(score) >= MIN_MATCH_COUNT:
             # target_imgs.append(img2_name)
             name = (cropped_imgs[i-2].split("/"))[-1]
             num = int(name[-7:-4])
             end = name[-4:]
-            copyfile(file, project_dir + folder_to + "/" + name)
-
+            copyfile(cropped_imgs[i-2], project_dir + folder_to + "/" + name)
 
 def crop_frames(labeled_points, project_dir, folder_to="cropped", folder_from="images"):
     images_n = len(labeled_points)
@@ -262,8 +265,8 @@ def get_model(IMAGE_DIR):
     COCO_MODEL_PATH = os.path.join(ROOT_DIR, "MASK_RCNN_models/mask_rcnn_coco.h5")
     # Download COCO trained weights from Releases if needed
     if not os.path.exists(COCO_MODEL_PATH):
-        #raise Exception("Can not find COCO_MODELL")
-        utils.download_trained_weights(COCO_MODEL_PATH)
+        raise Exception("Can not find COCO_MODELL")
+    #     utils.download_trained_weights(COCO_MODEL_PATH)
 
     # Directory of images to run detection on
     class InferenceConfig(coco.CocoConfig):
@@ -280,6 +283,10 @@ def get_model(IMAGE_DIR):
     # Load weights trained on MS-COCO
     model.load_weights(COCO_MODEL_PATH, by_name=True)
 
+    # COCO Class names
+    # Index of the class in the list is its ID. For example, to get ID of
+    # the teddy bear class, use: class_names.index('teddy bear')
+    
     return model
 
 def label_points_on_image(image_file, model):
@@ -295,8 +302,8 @@ def label_points(IMAGE_DIR, model):
     labeled_points = []
     lst = sorted(glob.glob(IMAGE_DIR + "*.jpg"))
     for image_file in lst:
+        print(image_file)
         labeled_points.append(label_points_on_image(image_file, model)) 
-    labeled_points = []
     return labeled_points
 
     # trying multiprocessing
