@@ -29,16 +29,15 @@ def main():
 	# get target frames from the cropped using feature extraction 
 	utils.get_target_frames(project_dir, "target.jpg", "target")
 
-	# os.system("colmap automatic_reconstructor --workspace_path " + project_dir + " --image_path " + project_dir + "images/")
+	os.system("colmap automatic_reconstructor --workspace_path " + project_dir + " --image_path " + project_dir + "target/")
 	
-	# cameras, images, points3D = read_model.read_model(path=project_dir+"sparse/0/", ext=".bin")
+	cameras, images, points3D = read_model.read_model(path=project_dir+"sparse/0/", ext=".bin")
 
+	utils.plot_points3D(points3D)
 
-	# utils.plot_points3D(points3D)
-
-	#labeled_points = utils.label_points(project_dir + "images/")
+	labeled_points = utils.label_points(project_dir + "target/")
 	
-	#points3D_on_images = utils.combine(labeled_points, cameras, images, points3D)
+	points3D_on_images = utils.combine(labeled_points, cameras, images, points3D)
 
 
 if __name__ == "__main__":

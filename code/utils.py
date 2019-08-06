@@ -16,7 +16,7 @@ import glob
 from shutil import copyfile
 
 def match_imgs(img1_name, img2_name):
-    MIN_MATCH_COUNT = 100
+    MIN_MATCH_COUNT = 70
 
     img1 = cv2.imread(img1_name,0) # queryImage
     img2 = cv2.imread(img2_name,0) # trainImage
@@ -76,33 +76,35 @@ def match_imgs(img1_name, img2_name):
 
 
 
+def copy_target_image(project_dir, folder_to, img):
+    name = (img.split("/"))[-1]
+    num = int(name[-7:-4])
+    end = name[-4:]
+    copyfile(img, project_dir + folder_to + "/" + name)
+    
+
 def get_target_frames(project_dir, img1_name, folder_to="target", folder_from="cropped"):
-    MIN_MATCH_COUNT = 200
+    MIN_MATCH_COUNT = 70
+    delta = 6
     img1_name = "/" + "/".join(list(filter(bool, project_dir.split("/")))[:(-1)]) + "/" + img1_name
     os.system("mkdir " + project_dir + folder_to)
     cropped_imgs =  sorted(glob.glob(project_dir + folder_from + "/*.jpg"))
     images_n = len(cropped_imgs)
-    score = [0,0,0,0,0]
-    for i in range(images_n+2):
-        for j, value in enumerate(score):
-            if (j + 1 < len(score)/2.0):
-                score[j] = score[j+1]
-            if (j + 1 > len(score)/2.0) and (j < len(score)-1):
-                score[j] = score[j+1]*2.0
-            if (j == len(score)-1):
-                if i < images_n:
-                    score[j] = match_imgs(img1_name, cropped_imgs[i])/4.0
-                else:
-                    score[j] = 0
-        if i < 2:
-            continue
-        print(sum(score))
-        if sum(score) >= MIN_MATCH_COUNT:
-            # target_imgs.append(img2_name)
-            name = (cropped_imgs[i-2].split("/"))[-1]
-            num = int(name[-7:-4])
-            end = name[-4:]
-            copyfile(cropped_imgs[i-2], project_dir + folder_to + "/" + name)
+    good_images = []
+    goodness = []
+    for i in range(images_n):
+        print("image #" + str(i+1))
+        goodness.append(match_imgs(img1_name, cropped_imgs[i]))
+        if goodness[-1] > MIN_MATCH_COUNT:
+            good_images.append(1)
+        else:
+            good_images.append(0)
+    print(good_images)
+    print(goodness)
+    for i in range(images_n):
+        if sum(good_images[max(0, i-(delta)):min(images_n, i+(delta+3))]) > 2:
+            copy_target_image(project_dir, folder_to, cropped_imgs[i])
+
 
 def crop_frames(labeled_points, project_dir, folder_to="cropped", folder_from="images"):
     images_n = len(labeled_points)
@@ -318,19 +320,22 @@ def label_points(IMAGE_DIR, model):
 
 def combine(labeled_points, cameras, images, points3D):
     images_n = len(images)
-    points3D_n = len(points3D)
-    points3D_on_images = np.zeros((points3D_n,images_n))
+    print(images_n)
+    points3D_n = max(points3D)
+    points3D_on_images = np.zeros((points3D_n,images_n+2))
+    points3D_on_images_classes = -np.ones((points3D_n,images_n))
 
-    images_n = len(labeled_points)
     for i in range(images_n):
         labeled_point = labeled_points[i]
         masks = labeled_point['masks']
+        class_ids = labeled_point['class_ids']
         masks = masks.astype(int)   
         masks_n = len(masks[0,0,:])
         masks_1 = len(masks[:,0,0])
         masks_2 = len(masks[0,:,0])
         mask = masks[:, :, 0]
         for j in range(masks_n):
+            #masks[:, :, j] = (j+1)*masks[:, :, j]
             mask = mask + np.logical_xor(mask, masks[:, :, j]*((j+1)*masks[:, :, j]))
         points2D_n = len(images[i+1].point3D_ids)
         for j in range(points2D_n):
@@ -340,7 +345,32 @@ def combine(labeled_points, cameras, images, points3D):
             xy = images[i+1].xys[j]
             x = int(round(xy[0]))
             y = int(round(xy[1]))
-            points3D_on_images[j][i] = mask[y][x]
-            
-    points3D_on_images = points3D_on_images.astype(int)
-    return points3D_on_images
+            points3D_on_images[point3D_id-1][i+1] = mask[y-1][x-1]
+            if mask[y-1][x-1] != 0:
+                points3D_on_images_classes[point3D_id-1][i] = class_ids[mask[y-1][x-1]-1]
+            if points3D_on_images[point3D_id-1][images_n+1] == 0:
+                points3D_on_images[point3D_id-1][images_n+1] = point3D_id
+
+    points3D_on_images_init = np.copy(points3D_on_images)
+
+    print(len(points3D_on_images_init))
+    #points3D_on_images = points3D_on_images_init[~np.all(points3D_on_images == 0, axis=1)]
+    points3D_on_images = np.copy(points3D_on_images_init.astype(int))
+    points3D_on_images_classes = 1+points3D_on_images_classes.astype(int)
+    for i in range(len(points3D_on_images)):
+    #     if i > 10:
+    #         break
+        counts = np.bincount(points3D_on_images_classes[i])
+    #     print(points3D_on_images_classes[i])
+        summ_z = counts[0]
+        if np.argmax(counts) == 0:
+            counts[0] = 0
+        points3D_on_images[i][0] = np.argmax(counts)-1
+        summ = sum(points3D_on_images[i][1:images_n])
+    #     print(points3D_on_images[i])
+        if len(counts) == 0 or summ_z > 10:
+    #         print("hehe")
+            points3D_on_images[i][0] = -1
+    #     print(points3D_on_images[i])
+    points3D_on_images = points3D_on_images[(points3D_on_images[:, 0] != -1)]
+    print(len(points3D_on_images))
