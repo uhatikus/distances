@@ -14,6 +14,11 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import glob
 from shutil import copyfile
+import multiprocessing as mp
+import time
+
+
+global global_model
 
 def match_imgs(img1_name, img2_name):
     MIN_MATCH_COUNT = 70
@@ -43,35 +48,35 @@ def match_imgs(img1_name, img2_name):
         if m.distance < 0.7*n.distance:
             good.append(m)
 
-    print(len(good))
-    print(MIN_MATCH_COUNT)
+    # print(len(good))
+    # print(MIN_MATCH_COUNT)
 
-    if len(good)>MIN_MATCH_COUNT:
-        src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
-        dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
+    # if len(good)>MIN_MATCH_COUNT:
+    #     src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
+    #     dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
 
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
-        matchesMask = mask.ravel().tolist()
+    #     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
+    #     matchesMask = mask.ravel().tolist()
 
-        h,w = img1.shape
-        pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
-        dst = cv2.perspectiveTransform(pts,M)
+    #     h,w = img1.shape
+    #     pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+    #     dst = cv2.perspectiveTransform(pts,M)
 
-        img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+    #     img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
 
-    else:
-        print("Not enough matches are found - %d/%d" % (len(good),MIN_MATCH_COUNT))
+    # else:
+    #     print("Not enough matches are found - %d/%d" % (len(good),MIN_MATCH_COUNT))
 
-        matchesMask = None
+    #     matchesMask = None
 
-    draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                       singlePointColor = None,
-                       matchesMask = matchesMask, # draw only inliers
-                       flags = 2)
+    # draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+    #                    singlePointColor = None,
+    #                    matchesMask = matchesMask, # draw only inliers
+    #                    flags = 2)
 
-    img3 = cv2.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
+    # img3 = cv2.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
 
-    plt.imshow(img3, 'gray'),plt.show()
+    # plt.imshow(img3, 'gray'),plt.show()
     return len(good)
 
 
@@ -159,7 +164,7 @@ def resize(image, scale):
 def video_to_frames(video_files):
     project_dir = ""
     scale = 0.5
-    ms = 5000
+    ms = 200
     video_name = ((ntpath.basename(video_files[0])).split("."))[0]
     os.system("mkdir data/projects/" + video_name)
     os.system("mkdir data/projects/" + video_name + "/images")
@@ -178,10 +183,11 @@ def video_to_frames(video_files):
             success,image = vidcap.read()
             count += 1  
             count_v += 1
-            if count > 150:
+            if count >= 9:
                 break 
     print("Obtained " + str(count-1) + " images")
-    return project_dir
+    n_imgs = count-1
+    return (project_dir, n_imgs)
 
 
 def plot_points3D(points3D):
@@ -250,7 +256,7 @@ class_names = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
                'teddy bear', 'hair drier', 'toothbrush']
 
 
-def get_model(IMAGE_DIR):
+def get_model(IMAGE_DIR, n_imgs):
     # Root directory of the project
     ROOT_DIR = os.getcwd()
     # Import Mask RCNN
@@ -275,7 +281,7 @@ def get_model(IMAGE_DIR):
         # Set batch size to 1 since we'll be running inference on
         # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
         GPU_COUNT = 1
-        IMAGES_PER_GPU = 1
+        IMAGES_PER_GPU = n_imgs//GPU_COUNT + int(bool(n_imgs % GPU_COUNT))
 
     config = InferenceConfig()
     # config.display()
@@ -291,29 +297,31 @@ def get_model(IMAGE_DIR):
     
     return model
 
-def label_points_on_image(image_file, model):
+def label_points_on_image(image_file, model=None):
+    if model == None:
+        global global_model
+        model = global_model
+
+    start = time.time()
     print("Processing image # " + str(image_file))
     image = skimage.io.imread(image_file)
 
     # Run detection
     results = (model.detect([image], verbose=1))[0]
+    end = time.time()
+    print("time for label_points_on_image: " + str(end - start) + " seconds")
     return results
 
 def label_points(IMAGE_DIR, model):
     # Object Detection    
-    labeled_points = []
     lst = sorted(glob.glob(IMAGE_DIR + "*.jpg"))
+    images = []
     for image_file in lst:
-        print(image_file)
-        labeled_points.append(label_points_on_image(image_file, model)) 
+        images.append(skimage.io.imread(image_file))
+    labeled_points = model.detect(images, verbose=1)
     return labeled_points
 
-    # trying multiprocessing
-    #     import multiprocessing as mp
-    #     pool = mp.Pool(mp.cpu_count()-1)
-    #     print(mp.cpu_count()-1)
-    #     labeled_points = [pool.apply(label_points_on_image, args=([image_file])) for image_file in lst]
-    #     pool.close() 
+
 
 
 
