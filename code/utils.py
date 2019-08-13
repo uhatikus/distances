@@ -162,7 +162,7 @@ def resize(image, scale):
 def video_to_frames(video_files):
     project_dir = ""
     scale = 0.5
-    ms = 200
+    ms = 500
     video_name = ((ntpath.basename(video_files[0])).split("."))[0]
     os.system("mkdir data/projects/" + video_name)
     os.system("mkdir data/projects/" + video_name + "/images")
@@ -181,7 +181,7 @@ def video_to_frames(video_files):
             success,image = vidcap.read()
             count += 1  
             count_v += 1
-            if count >= 9:
+            if count >= 30:
                 break 
     print("Obtained " + str(count-1) + " images")
     n_imgs = count-1

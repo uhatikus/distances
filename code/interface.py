@@ -1,3 +1,4 @@
+import os
 import sys
 import read_model
 import utils
@@ -10,6 +11,7 @@ from matplotlib.backends.backend_tkagg import (
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
 class Fill_window:
 
@@ -26,55 +28,55 @@ class Fill_window:
 		self.processing.configure(text="Processing...")
 		self.master.update()
 		start1 = time.time()
-		# self.project_dir, self.n_imgs = utils.video_to_frames(self.videos)
+		self.project_dir, self.n_imgs = utils.video_to_frames(self.videos)
 		end1 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for video_to_frames: " + str(end1 - start1) + " seconds")
 		self.master.update()
 		start2 = time.time()
 		# get model for labeling 
-		# self.model = utils.get_model(self.project_dir + "images/", self.n_imgs)
+		self.model = utils.get_model(self.project_dir + "images/", self.n_imgs)
 		end2 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for get_model: " + str(end2 - start2) + " seconds")
 		self.master.update()
 		start3 = time.time()
 		# labeling for cropping
-		# self.labeled_points_for_cropping = utils.label_points(self.project_dir + "images/", self.model)
+		self.labeled_points_for_cropping = utils.label_points(self.project_dir + "images/", self.model)
 		end3 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for label_points: " + str(end3 - start3) + " seconds")
 		self.master.update()
 		start4 = time.time()
 		# saved in directory "cropped"
-		# utils.crop_frames(self.labeled_points_for_cropping, self.project_dir, "cropped", "images")
+		utils.crop_frames(self.labeled_points_for_cropping, self.project_dir, "cropped", "images")
 		end4 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for crop_frames: " + str(end4 - start4) + " seconds")
 		self.master.update()
 		start5 = time.time()
 		# get target frames from the cropped using feature extraction 
-		# utils.get_target_frames(self.project_dir, self.target, "target", "cropped")
+		utils.get_target_frames(self.project_dir, self.target, "target", "cropped")
 		end5 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for get_target_frames: " + str(end5 - start5) + " seconds")
 		self.master.update()
 		start6 = time.time()
 		# Structure from Motion
-		# os.system("colmap automatic_reconstructor --workspace_path " + project_dir + " --image_path " + project_dir + "target/")
+		os.system("colmap automatic_reconstructor --workspace_path " + self.project_dir + " --image_path " + project_dir + "target/")
 		end6 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for colmap: " + str(end6 - start6) + " seconds")
 		self.master.update()
 		start7 = time.time()
 		# read output of Structure from Motion
-		# self.cameras, self.images, self.points3D = read_model.read_model(path=self.project_dir+"sparse/0/", ext=".bin")
+		self.cameras, self.images, self.points3D = read_model.read_model(path=self.project_dir+"sparse/0/", ext=".bin")
 		end7 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for read_model: " + str(end7 - start7) + " seconds")
 		self.master.update()
 		start8 = time.time()
 		# label points of target frames
-		# self.labeled_points = utils.label_points(self.project_dir + "target/", self.model)
+		self.labeled_points = utils.label_points(self.project_dir + "target/", self.model)
 		end8 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for label_points: " + str(end8 - start8) + " seconds")
 		self.master.update()
 		start9 = time.time()
 		# combine SfM and MASK RCNN
-		# self.points3D_on_images = utils.combine(self.labeled_points, self.cameras, self.images, self.points3D)
+		self.points3D_on_images = utils.combine(self.labeled_points, self.cameras, self.images, self.points3D)
 		end9 = time.time()
 		self.processing.configure(text=self.processing.cget("text")+"\nTime for combine: " + str(end9 - start9) + " seconds")
 		self.master.update()
@@ -90,6 +92,7 @@ class Fill_window:
 		self.target = ""
 		self.points3D = ""
 		self.processed = False
+		self.project_dir = ""
 
 		self.master = master
 
@@ -108,7 +111,7 @@ class Fill_window:
 
 		self.chosen_target = Label(self.frame, text="Chosen target: \n")
 		def choose_clicked():
-			self.target = filedialog.askopenfilename(parent=self.master, title='Choose target', filetypes = (("image files","*.jpg"),("all files","*.*")))
+			self.target = filedialog.askopenfilename(parent=self.master, title='Choose target', filetypes = (("all files","*.*"), ("image files","*.jpg")))
 			self.chosen_target.configure(text="Chosen target: \n" + str(self.target))
 		self.chooseButton = Button(self.frame, text = 'Choose target', width = 25, command=choose_clicked)
 		self.chooseButton.pack()
@@ -125,6 +128,8 @@ class Fill_window:
 			if not self.processed:
 				self.show.configure(text="ERROR!!! Please, process input")
 				return
+			if len(self.points3D) <= 0:
+				self.cameras, self.images, self.points3D = read_model.read_model(path=self.project_dir+"sparse/0/", ext=".bin")
 			self.newWindow = Toplevel(self.master)
 			self.app = Show_window(self.newWindow, self.points3D)
 		self.show_3DpointsButton = Button(self.frame, text = 'show 3Dpoints', width = 25, command=show_3Dpoints_clicked)
