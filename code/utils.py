@@ -6,12 +6,10 @@ import random
 import math
 import numpy as np
 import skimage.io
-import matplotlib
-import matplotlib.pyplot as plt
 import collections
 import struct
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
 import glob
 from shutil import copyfile
 import multiprocessing as mp
@@ -91,7 +89,7 @@ def copy_target_image(project_dir, folder_to, img):
 def get_target_frames(project_dir, img1_name, folder_to="target", folder_from="cropped"):
     MIN_MATCH_COUNT = 70
     delta = 6
-    img1_name = "/" + "/".join(list(filter(bool, project_dir.split("/")))[:(-1)]) + "/" + img1_name
+    # img1_name = "/" + "/".join(list(filter(bool, project_dir.split("/")))[:(-1)]) + "/" + img1_name
     os.system("mkdir " + project_dir + folder_to)
     cropped_imgs =  sorted(glob.glob(project_dir + folder_from + "/*.jpg"))
     images_n = len(cropped_imgs)
