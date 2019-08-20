@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
 # 	# utils.plot_points3D(points3D)
 
-# 	# labeled_points = utils.label_points(project_dir + "target/")
+# 	# labeled_points = utils.label_points(project_dir + "target/", model)
 	
 # 	# points3D_on_images = utils.combine(labeled_points, cameras, images, points3D)
 
