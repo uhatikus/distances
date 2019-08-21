@@ -111,12 +111,12 @@ def get_target_frames(project_dir, img1_name, folder_to="target", folder_from="c
 
 
 def crop_frames(labeled_points, project_dir, folder_to="cropped", folder_from="images"):
-    images_n = len(labeled_points)
     x1 = []
     y1 = []
     x2 = []
     y2 = []
-    for i in range(images_n):
+    for i in labeled_points:
+        print(i)
         masks = labeled_points[i]['masks']
         min_x = float('inf')
         min_y = float('inf')
@@ -399,78 +399,69 @@ def label_points(IMAGE_DIR, model):
 
 
 
-def combine(labeled_points, cameras, images, points3D):
+def combine(project_dir, labeled_points, cameras, images, points3D):
     images_n = len(images)
     print("number of images: " + str(images_n))
-    points3D_n = max(points3D)
-    points3D_on_images = np.zeros((points3D_n,images_n+2))
-    points3D_on_images_classes = -np.ones((points3D_n,images_n))
-    img_id = 0
-    good = 0
-    bad = 0
-    for i in range(images_n):
-        while True:
-            try: 
-                img_i = images[img_id]
-            except:
-                img_id += 1
-            else: 
-                break
-        labeled_point = labeled_points[img_id-1]
+    print("number of points before removing useless points: " + str(len(points3D)))
+    points3D_on_images = {}
+    points3D_on_images_classes = {}
+    for point3D_id in points3D:
+        points3D_on_images[point3D_id] = {}
+        points3D_on_images_classes[point3D_id] = {}
+    for i in images:
+        labeled_point = labeled_points[project_dir + images[i].name]
         masks = labeled_point['masks']
         class_ids = labeled_point['class_ids']
         masks = masks.astype(int)   
         masks_n = len(masks[0,0,:])
-        masks_1 = len(masks[:,0,0])
-        masks_2 = len(masks[0,:,0])
         mask = masks[:, :, 0]
         for j in range(masks_n):
-            #masks[:, :, j] = (j+1)*masks[:, :, j]
             mask = mask + np.logical_xor(mask, masks[:, :, j]*((j+1)*masks[:, :, j]))
-        points2D_n = len(images[img_id].point3D_ids)
-        for j in range(points2D_n):
-            point3D_id = images[img_id].point3D_ids[j]
+        
+        for j, point3D_id in enumerate(images[i].point3D_ids):
             if (point3D_id == -1):
                 continue 
-            xy = images[img_id].xys[j]
+            xy = images[i].xys[j]
             x = int(round(xy[0]))
             y = int(round(xy[1]))
-            try:
-                points3D_on_images[point3D_id-1][i+1] = mask[y-1][x-1]
-                if mask[y-1][x-1] != 0:
-                    points3D_on_images_classes[point3D_id-1][i] = class_ids[mask[y-1][x-1]-1]
-                if points3D_on_images[point3D_id-1][images_n+1] == 0:
-                    points3D_on_images[point3D_id-1][images_n+1] = point3D_id
-                good += 1
-            except:
-                bad += 1
-        img_id += 1
-    print("good: " + str(good))
-    print("bad: " + str(bad))
-    print("accuracy: " + str(good/(good+bad)))
-    print("number of points before removing useless points: " + str(len(points3D_on_images)))
-    points3D_on_images = np.copy(points3D_on_images.astype(int))
-    points3D_on_images_classes = 1+points3D_on_images_classes.astype(int)
-    for i in range(len(points3D_on_images)):
-        counts = np.bincount(points3D_on_images_classes[i])
-        summ_z = counts[0]
-        if np.argmax(counts) == 0:
-            counts[0] = 0
-        points3D_on_images[i][0] = np.argmax(counts)-1
-        if images_n-summ_z < 5:
-            points3D_on_images[i][0] = -1
-    points3D_on_images = points3D_on_images[(points3D_on_images[:, 0] != -1)]
+            object_id = mask[y-1][x-1]
+            if object_id != 0:
+                points3D_on_images[point3D_id][i] = object_id
+                points3D_on_images_classes[point3D_id][i] = class_ids[object_id - 1]
+                
+    points3D_on_images_keys = list(points3D_on_images.keys())
+    for point3D_id in points3D_on_images_keys:
+        if not points3D_on_images[point3D_id]:
+            del points3D_on_images[point3D_id]
+            del points3D_on_images_classes[point3D_id]
+            continue
+        elif len(points3D_on_images[point3D_id]) < 5:
+            del points3D_on_images[point3D_id]
+            del points3D_on_images_classes[point3D_id]
+            continue
+        counts = np.bincount(list(points3D_on_images_classes[point3D_id].values()))
+        object_class = np.argmax(counts)
+        if object_class == 0:
+            del points3D_on_images[point3D_id]
+            del points3D_on_images_classes[point3D_id]
+        else:
+            points3D_on_images_classes[point3D_id] = object_class
     print("final number of points: " + str(len(points3D_on_images)))
-    return points3D_on_images
+    return points3D_on_images, points3D_on_images_classes
 
-def get_clusters(points3D_on_images):
-        
-    max_id = points3D_on_images[:,1:-1].max()
-    points3D_on_images_to_cluster = np.zeros((len(points3D_on_images), len(points3D_on_images[0, 1:-1])*max_id))
-    for i, point3D_ids in enumerate(points3D_on_images):
-        for j, obj_id in enumerate(point3D_ids[1:-1]):
-            if obj_id != 0:
-                points3D_on_images_to_cluster[i][j * max_id + obj_id - 1] = 1
+def get_clusters(points3D_on_images, points3D, images_n):
+    
+    points3D_i_to_point3D_id = []
+    max_id = 0
+    for point3D_id in points3D_on_images:
+        max_id_for_cur_point3D = max(list(points3D_on_images[point3D_id].values()))
+        if max_id_for_cur_point3D > max_id:
+            max_id = max_id_for_cur_point3D
+    points3D_on_images_to_cluster = np.zeros((len(points3D_on_images), images_n*max_id))
+    for i, point3D_id in enumerate(points3D_on_images):
+        points3D_i_to_point3D_id.append(point3D_id)
+        for img_number in points3D_on_images[point3D_id]:
+            points3D_on_images_to_cluster[i][(img_number - 1)* max_id + (points3D_on_images[point3D_id][img_number] - 1)] = 1
     
     n_clusters = 5
     from sklearn.cluster import KMeans
@@ -480,7 +471,7 @@ def get_clusters(points3D_on_images):
     for i in range(clustering.n_clusters):
         cluster[i] = []
     for i, cl in enumerate(clustering.labels_):
-        cluster[cl].append(points3D_on_images[i][-1])
+        cluster[cl].append(points3D_i_to_point3D_id[i])
     cluster_points3D = []
     cluster_xyz = []
     cluster_stds_xyz = []
@@ -507,9 +498,12 @@ def get_clusters(points3D_on_images):
             continue
         for j in range(clustering.n_clusters - i - 1):
             j = j + i + 1
+            if j not in cluster:
+                continue
             if np.linalg.norm(cluster_means_xyz[i]-cluster_means_xyz[j]) < 1:
                 cluster[i] = cluster[i]+cluster[j]
                 del cluster[j]
+
     return cluster
 
 def get_target_cluster(images, cluster):
